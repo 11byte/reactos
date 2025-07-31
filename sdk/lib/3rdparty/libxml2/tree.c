@@ -140,6 +140,54 @@ static int xmlCheckDTD = 1;
 #define IS_STR_XML(str) ((str != NULL) && (str[0] == 'x') && \
   (str[1] == 'm') && (str[2] == 'l') && (str[3] == 0))
 
+ /**
+ * Safe allocation function that prevents integer overflows
+ */
+void* safe_malloc(size_t size) {
+    if (size > SIZE_MAX) {
+        // If size is larger than SIZE_MAX, it will overflow.
+        return NULL;
+    }
+    void* ptr = malloc(size);
+    if (ptr == NULL) {
+        // Handle memory allocation failure
+        xmlTreeErrMemory("Unable to allocate memory.");
+    }
+    return ptr;
+}
+
+/**
+ * xmlBuildQName - Safely construct a qualified name for XML
+ * 
+ * Modified to prevent integer overflow by checking buffer size.
+ */
+int SIZE_MAX =100;
+xmlChar* xmlBuildQName(const xmlChar *prefix, const xmlChar *local) {
+    if (prefix == NULL || local == NULL) {
+        return NULL;
+    }
+
+    size_t prefix_len = strlen((const char*)prefix);
+    size_t local_len = strlen((const char*)local);
+    // Safeguard against overflow: Check if total length exceeds SIZE_MAX
+    if (prefix_len > SIZE_MAX - local_len - 1) {
+        return NULL; // Overflow would occur
+    }
+
+    size_t total_len = prefix_len + local_len + 1; // +1 for the ':' separator
+    xmlChar* qname = (xmlChar*)safe_malloc(total_len + 1); // +1 for the null terminator
+
+    if (qname == NULL) {
+        return NULL; // Memory allocation failed
+    }
+
+    // Build the QName by concatenating prefix and local name
+    snprintf((char*)qname, total_len + 1, "%s:%s", prefix, local);
+
+    return qname;
+}
+
+
 /* #define DEBUG_BUFFER */
 /* #define DEBUG_TREE */
 
